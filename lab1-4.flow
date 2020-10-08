@@ -1,0 +1,57 @@
+import runtime;
+import string;
+import ds/tree;
+
+intArray2strArray(intArray: [int]) -> [string];
+
+intArray2strArray(intArray) {
+	map(intArray, i2s)
+}
+
+intArraySum(intArray: [int]) -> int;
+
+intArraySum(intArray) {
+	fold(intArray, 0, \ a: int, b: int -> a+b);
+}
+
+fib(n: int) -> [int];
+
+fib(n) {
+	if(n<=0) {
+		[];
+	} else if(n==1) {
+		[0];
+	} else if(n==2) {
+		[0, 1];
+	} else {
+		concat(fib(n-1), [fib(n-1)[n-3]+fib(n-1)[n-2]]);
+	}
+}
+
+fib2(n: int) -> [int];
+
+fib2(n) {
+	refArr = mapi(enumFromTo(1, n), \i, __ -> if(i==1) ref 1 else ref 0);
+	fori(2, length(refArr)-1, \i -> refArr[i] := ^(refArr[i-2]) + ^(refArr[i-1]));
+	map(refArr, \i -> ^i);
+}
+
+inds(a : [int], m : int) -> [Pair<int, int>];
+
+inds(a, m) {
+	foldi(a, Pair([], makeTree()), \i, pair, ai -> {
+		newAcc = concat(pair.first, map(lookupTreeDef(pair.second, m - ai, []), \index -> Pair(index, i)));
+		newTree = setTree(pair.second, ai, arrayPush(lookupTreeDef(pair.second, ai, []), i));
+		Pair(newAcc, newTree);
+	}).first;
+}
+	
+
+main() {
+	a = [1, 2, 3];
+	println(strGlue(intArray2strArray(a), ", "));
+	println(intArraySum(a));
+	println(fib(16));
+	println(fib2(16));
+	println(inds([0, 5, 6, 10, -1, 2, 4, 9], 6));
+}
