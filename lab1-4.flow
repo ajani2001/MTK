@@ -36,6 +36,23 @@ fib2(n) {
 	map(refArr, \i -> ^i);
 }
 
+fibHelper(refArr, i)
+	if(i<=0) {
+		;
+	} else if(i==1) {
+		refArrayPush(refArr, 0);
+	} else if(i==2) {
+		refArrayPush(refArr, 1);
+	else {
+		refArrayPush(fibHelper(refArr i-1), refArr[ ;
+	}
+}
+
+fib3(n: int) -> [int];
+
+fib3(n) {
+	
+
 inds(a : [int], m : int) -> [Pair<int, int>];
 
 inds(a, m) {
