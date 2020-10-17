@@ -36,21 +36,26 @@ fib2(n) {
 	map(refArr, \i -> ^i);
 }
 
-fibHelper(refArr, i)
-	if(i<=0) {
-		;
-	} else if(i==1) {
-		refArrayPush(refArr, 0);
-	} else if(i==2) {
-		refArrayPush(refArr, 1);
-	else {
-		refArrayPush(fibHelper(refArr i-1), refArr[ ;
-	}
+fibHelper(refArr, i, n) {
+	if(0 <= i && i < n) {
+		if(i==0) {
+			refArrayPush(refArr, 0);
+		} else if(i==1) {
+			refArrayPush(refArr, 1);
+		} else {
+			refArrayPush(refArr, (^refArr)[i-2] + (^refArr)[i-1]);
+		}
+		fibHelper(refArr, i+1, n);
+	} else {}
 }
 
 fib3(n: int) -> [int];
 
 fib3(n) {
+	refArr = ref [];
+	fibHelper(refArr, 0, n);
+	^refArr;
+}
 	
 
 inds(a : [int], m : int) -> [Pair<int, int>];
@@ -70,5 +75,6 @@ main() {
 	println(intArraySum(a));
 	println(fib(16));
 	println(fib2(16));
+	println(fib3(16));
 	println(inds([0, 5, 6, 10, -1, 2, 4, 9], 6));
 }
