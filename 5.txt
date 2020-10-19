@@ -1,0 +1,19 @@
+expr = int:leaf { :leaf } | "-" expr:e { UnOp("-", :e) } | "("expr:e")" { :e } | expr:e1 sum_op:opsym expr:e2 { BinOp(:opsym, e1, e2) } | expr:e1 multiply_op:opsym expr:e2 BinOp(:opsym, e1, e2);
+multiply_op = "*"$opsym { $opsym } | "/"$opsym { $opsym };
+sum_op = "+"$opsym { $opsym } | "-"$opsym { $opsym };
+int = "-"? digit+$str { Leaf(s2i($str)) };
+digit = '0'-'9';
+
+Expr ::= Int, UnOp, BinOp;
+Int(value: int);
+UnOp(opSym: string, e: Expr);
+BinOp(opSym: string, e1: Expr, e2: Expr);
+
+expr2s(e: Expr) -> string;
+expr2s(e) {
+	switch(e) {
+		Int(value): i2s(value);
+		UnOp(opSym: string, e: Expr): concat(concat())
+		BinOp(opSym: string, e1: Expr, e2: Expr)
+	}
+}

@@ -1,0 +1,3 @@
+sum = int:i "+" sum:s { Wer(:i, :s) } | int:i { :i };
+int = digit+$i { Qwe($i) };
+digit = '0'-'9';
