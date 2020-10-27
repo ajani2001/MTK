@@ -1,0 +1,67 @@
+import lingo/pegcode/driver;
+import net/url_parameter;
+//import math/math;
+
+Expr ::= Sum, Sub, Mul, Div, Pow, Integer, Variable;
+Sum(e1: Expr, e2: Expr);
+Sub(e1: Expr, e2: Expr);
+Mul(e1: Expr, e2: Expr);
+Div(e1: Expr, e2: Expr);
+Pow(e1: Expr, e2: Expr);
+Integer(i: int);
+Variable(name: string);
+
+buildOp(lol: [flow]) -> flow;
+buildOp(lol) {
+	if(lol[0]=="+") {
+		Sum(lol[1], lol[2]);
+	} else if(lol[0]=="-") {
+		Sub(lol[1], lol[2]);
+	} else if(lol[0]=="*") {
+		Mul(lol[1], lol[2]);
+	} else {
+		Div(lol[1], lol[2]);
+ 	}
+}
+
+string2Expr(s: string) -> Expr;
+string2Expr(s) {
+	extendedPegActions = SemanticActions(setTree(defaultPegActions.t, "buildOp", buildOp));
+	parsic(compilePegGrammar("#include lab8-11.lingo"), s, extendedPegActions);
+}
+
+Expr2string(e: Expr) -> string;
+Expr2string(e) {
+	switch(e: Expr) {
+		Sum(e1, e2): strGlue(["(", Expr2string(e1), "+", Expr2string(e2), ")"], "");
+		Sub(e1, e2): strGlue(["(", Expr2string(e1), "-", Expr2string(e2), ")"], "");
+		Mul(e1, e2): strGlue(["(", Expr2string(e1), "*", Expr2string(e2), ")"], "");
+		Div(e1, e2): strGlue(["(", Expr2string(e1), "/", Expr2string(e2), ")"], "");
+		Pow(e1, e2): strGlue([Expr2string(e1), "^", Expr2string(e2)], "");
+		Integer(i): i2s(i);
+		Variable(name): name;
+	}
+}
+
+calculateExpr(e: Expr) -> int;
+calculateExpr(e) {
+	switch(e: Expr) {
+		Sum(e1, e2): calculateExpr(e1)+calculateExpr(e2);
+		Sub(e1, e2): calculateExpr(e1)-calculateExpr(e2);
+		Mul(e1, e2): calculateExpr(e1)*calculateExpr(e2);
+		Div(e1, e2): calculateExpr(e1)/calculateExpr(e2);
+		Pow(e1, e2): pow(calculateExpr(e1), calculateExpr(e2));
+		Integer(i): i;
+		Variable(name): s2i(getUrlParameter(name));
+	}
+}
+
+main() {
+	sourceExpression = getUrlParameter("0expr");
+	expr = string2Expr(sourceExpression);
+	println(expr);
+	str = Expr2string(expr);
+	println(str);
+	value = calculateExpr(expr);
+	println(value);
+}

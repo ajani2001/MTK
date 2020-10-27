@@ -1,11 +1,31 @@
-import lingo/pegcode/driver;
+import sys/system;
+import runtime;
+import net/url_parameter;
 
-AAA ::= Qwe, Wer;
-Qwe(s: string);
-Wer(a: AAA, b: AAA);
+t(s: string) -> int;
+t(s) {
+	if(s=="1") {
+		1;
+	} else {
+		0;
+	}
+}
 
 main() {
-	grammar = compilePegGrammar("#include test.lingo");
-	result = parsic(grammar, "1+1", defaultPegActions);
-	println(result);
+	println(t(getUrlParameter("a")));
+	//println(readUntil("\n"));
+	//println("Exit");
+}
+
+buildOp(op: string, e1: Expr, e2: Expr) -> Expr;
+buildOp(op, e1, e2) {
+	if(op=="+") {
+		Sum(e1, e2);
+	} else if(op=="-") {
+		Sub(e1, e2);
+	} else if(op=="*") {
+		Mul(e1, e2);
+	} else {
+		Div(e1, e2);
+ 	}
 }

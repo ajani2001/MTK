@@ -1,0 +1,11 @@
+expr = "(" expr:e1 OpSym$op expr:e2 ")^" expr:e3 { Pow(buildOp($op, :e1, :e2), :e3) } |
+	"(" expr:e1 OpSym$op expr:e2 ")" { buildOp($op, :e1, :e2) } |
+	Integer:i "^" expr:e { Pow(:i, :e) } |
+	Integer:i { :i } |
+	Variable$name "^" expr:e { Pow(Variable($name), :e) } |
+	Variable$name { Variable($name) };
+OpSym = "+" | "-" | "*" | "/";
+Integer = Number+$i { Integer(s2i($i)) };
+Variable = Letter+ (Number | Letter)*;
+Number = '0'-'9';
+Letter = 'a'-'z' | 'A'-'Z';

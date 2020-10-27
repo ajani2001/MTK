@@ -1,0 +1,3 @@
+expr = "(" expr:e1 "+" expr:e2 ")" { Sum(:e1, :e2) } | "(" expr:e1 "*" expr:e2 ")" { Mul(:e1, :e2) } | Integer:i { :i };
+Integer = Number+$i { Integer(s2i($i)) };
+Number = '0'-'9';

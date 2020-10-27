@@ -1,0 +1,39 @@
+import lingo/pegcode/driver;
+
+Expr ::= Sum, Mul, Integer;
+Sum(e1: Expr, e2: Expr);
+Mul(e1: Expr, e2: Expr);
+Integer(i: int);
+
+string2Expr(s: string) -> Expr;
+string2Expr(s) {
+	parsic(compilePegGrammar("#include lab5-7.lingo"), s, defaultPegActions);
+}
+
+Expr2string(e: Expr) -> string;
+Expr2string(e) {
+	switch(e: Expr) {
+		Sum(e1, e2): strGlue(["(", Expr2string(e1), "+", Expr2string(e2), ")"], "");
+		Mul(e1, e2): strGlue(["(", Expr2string(e1), "*", Expr2string(e2), ")"], "");
+		Integer(i): i2s(i);
+	}
+}
+
+calculateExpr(e: Expr) -> int;
+calculateExpr(e) {
+	switch(e: Expr) {
+		Sum(e1, e2): calculateExpr(e1)+calculateExpr(e2);
+		Mul(e1, e2): calculateExpr(e1)*calculateExpr(e2);
+		Integer(i): i;
+	}
+}
+
+main() {
+	sourceExpression = "((1+2)*(3+4))";
+	expr = string2Expr(sourceExpression);
+	println(expr);
+	str = Expr2string(expr);
+	println(str);
+	value = calculateExpr(expr);
+	println(value);
+}

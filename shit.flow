@@ -1,0 +1,11 @@
+import lingo/pegcode/driver;
+
+AAA ::= Qwe, Wer;
+Qwe(s: string);
+Wer(a: AAA, b: AAA);
+
+main() {
+	grammar = compilePegGrammar("#include test.lingo");
+	result = parsic(grammar, "1+1", defaultPegActions);
+	println(result);
+}
