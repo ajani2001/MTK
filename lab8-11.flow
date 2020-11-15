@@ -1,26 +1,28 @@
 import lingo/pegcode/driver;
 import net/url_parameter;
-//import math/math;
+import math/math;
 
-Expr ::= Sum, Sub, Mul, Div, Pow, Integer, Variable;
+Scalar ::= Fraction, Integer;
+Expr ::= Sum, Sub, Mul, Div, Pow, Fraction, Integer, Variable;
 Sum(e1: Expr, e2: Expr);
 Sub(e1: Expr, e2: Expr);
 Mul(e1: Expr, e2: Expr);
 Div(e1: Expr, e2: Expr);
 Pow(e1: Expr, e2: Expr);
+Fraction(i1: int, i2: int);
 Integer(i: int);
 Variable(name: string);
 
-buildOp(lol: [flow]) -> flow;
-buildOp(lol) {
-	if(lol[0]=="+") {
-		Sum(lol[1], lol[2]);
-	} else if(lol[0]=="-") {
-		Sub(lol[1], lol[2]);
-	} else if(lol[0]=="*") {
-		Mul(lol[1], lol[2]);
+buildOp(args: [flow]) -> flow;
+buildOp(args) {
+	if(args[0]=="+") {
+		Sum(args[1], args[2]);
+	} else if(args[0]=="-") {
+		Sub(args[1], args[2]);
+	} else if(args[0]=="*") {
+		Mul(args[1], args[2]);
 	} else {
-		Div(lol[1], lol[2]);
+		Div(args[1], args[2]);
  	}
 }
 
@@ -38,30 +40,279 @@ Expr2string(e) {
 		Mul(e1, e2): strGlue(["(", Expr2string(e1), "*", Expr2string(e2), ")"], "");
 		Div(e1, e2): strGlue(["(", Expr2string(e1), "/", Expr2string(e2), ")"], "");
 		Pow(e1, e2): strGlue([Expr2string(e1), "^", Expr2string(e2)], "");
+		Fraction(i1, i2): strGlue(["(", i2s(i1), "/", i2s(i2), ")"], "");
 		Integer(i): i2s(i);
 		Variable(name): name;
 	}
 }
 
-calculateExpr(e: Expr) -> int;
+simplifyFraction(f: Fraction) -> Scalar;
+simplifyFraction(f) {
+	sg = isign(f.i1*f.i2);
+	i1 = iabs(f.i1);
+	i2 = iabs(f.i2);
+	if(i1%i2 == 0) {
+		Integer(sg*i1/i2);
+	} else {
+		divider = gcd(i1, i2);
+		Fraction(sg*i1/divider, i2/divider);
+	}
+}
+
+sumScalar(s1: Scalar, s2: Scalar) -> Scalar;
+sumScalar(s1, s2) {
+	switch(s1: Scalar) {
+		Fraction(i11, i12): {
+			switch(s2: Scalar) {
+				Fraction(i21, i22): simplifyFraction(Fraction(i11*i22+i21*i12, i12*i22));
+				Integer(i2): simplifyFraction(Fraction(i11+i2*i12, i12));
+			}
+		}
+		Integer(i1): {
+			switch(s2: Scalar) {
+				Fraction(i21, i22): simplifyFraction(Fraction(i21+i1*i22, i22));
+				Integer(i2): Integer(i1+i2);
+			}
+		}
+	}
+}
+
+mulScalar(s1: Scalar, s2: Scalar) -> Scalar;
+mulScalar(s1, s2) {
+	switch(s1: Scalar) {
+		Fraction(i11, i12): {
+			switch(s2: Scalar) {
+				Fraction(i21, i22): simplifyFraction(Fraction(i11*i21, i12*i22));
+				Integer(i2): simplifyFraction(Fraction(i11*i2, i12));
+			}
+		}
+		Integer(i1): {
+			switch(s2: Scalar) {
+				Fraction(i21, i22): simplifyFraction(Fraction(i1*i21, i22));
+				Integer(i2): Integer(i1*i2);
+			}
+		}
+	}
+}
+
+subScalar(s1: Scalar, s2: Scalar) -> Scalar;
+subScalar(s1, s2) {
+	sumScalar(s1, mulScalar(s2, Integer(-1)));
+}
+
+divScalar(s1: Scalar, s2: Scalar) -> Scalar;
+divScalar(s1, s2) {
+	switch(s2: Scalar) {
+		Fraction(i21, i22): mulScalar(s1, Fraction(i22, i21));
+		Integer(i2): mulScalar(s1, Fraction(1, i2));
+	}
+}
+
+powScalar(s1: Scalar, s2: Scalar) -> Scalar;
+powScalar(s1, s2) {
+	switch(s1: Scalar) {
+		Fraction(i11, i12): {
+			switch(s2: Scalar) {
+				Fraction(i21, i22): simplifyFraction(Fraction(round(100.0*dpow(i2d(i11)/i2d(i12), i2d(i21)/i2d(i22))), 100));
+				Integer(i2): simplifyFraction(Fraction(pow(i11, i2), pow(i12, i2)));
+			}
+		}
+		Integer(i1): {
+			switch(s2: Scalar) {
+				Fraction(i21, i22): simplifyFraction(Fraction(round(100.0*dpow(i2d(i1), i2d(i21)/i2d(i22))), 100));
+				Integer(i2): Integer(pow(i1, i2));
+			}
+		}
+	}
+}
+
+calculateExpr(e: Expr) -> Scalar;
 calculateExpr(e) {
 	switch(e: Expr) {
-		Sum(e1, e2): calculateExpr(e1)+calculateExpr(e2);
-		Sub(e1, e2): calculateExpr(e1)-calculateExpr(e2);
-		Mul(e1, e2): calculateExpr(e1)*calculateExpr(e2);
-		Div(e1, e2): calculateExpr(e1)/calculateExpr(e2);
-		Pow(e1, e2): pow(calculateExpr(e1), calculateExpr(e2));
-		Integer(i): i;
-		Variable(name): s2i(getUrlParameter(name));
+		Sum(e1, e2): sumScalar(calculateExpr(e1), calculateExpr(e2));
+		Sub(e1, e2): subScalar(calculateExpr(e1), calculateExpr(e2));
+		Mul(e1, e2): mulScalar(calculateExpr(e1), calculateExpr(e2));
+		Div(e1, e2): divScalar(calculateExpr(e1), calculateExpr(e2));
+		Pow(e1, e2): powScalar(calculateExpr(e1), calculateExpr(e2));
+		Fraction(i1, i2): Fraction(i1, i2);
+		Integer(i): Integer(i);
+		Variable(name): Integer(s2i(getUrlParameter(name)));
+	}
+}
+
+simplifySimple(e: Expr) -> Expr;
+simplifySimple(e) {
+	switch(e: Expr) {
+		Sum(e1, e2): {
+			se1 = simplifySimple(e1);
+			se2 = simplifySimple(e2);
+			if(se1 == Integer(0)) {
+				se2;
+			} else
+			if(se2 == Integer(0)) {
+				se1;
+			} else
+
+			switch(se1: Expr) {
+				Integer(i1): switch(se2: Expr) {
+					Integer(i2): sumScalar(se1, se2);
+					Fraction(i21, i22): sumScalar(se1, se2);
+					default: Sum(se1, se2);
+				}
+				Fraction(i11, i12): switch(se2: Expr) {
+					Integer(i2): sumScalar(se1, se2);
+					Fraction(i21, i22): sumScalar(se1, se2);
+					default: Sum(se1, se2);
+				}
+				default: Sum(se1, se2);
+			}
+		}
+		Sub(e1, e2): {
+			se1 = simplifySimple(e1);
+			se2 = simplifySimple(e2);
+			if(se1 == Integer(0)) {
+				switch(se2: Expr) {
+					Integer(i2): Integer(-i2);
+					Fraction(i21, i22): Fraction(-i21, i22);
+					default: Mul(Integer(-1), se2);
+				}
+			} else
+			if(se2 == Integer(0)) {
+				se1;
+			} else
+
+			switch(se1: Expr) {
+				Integer(i1): switch(se2: Expr) {
+					Integer(i2): subScalar(se1, se2);
+					Fraction(i21, i22): subScalar(se1, se2);
+					default: Sub(se1, se2);
+				}
+				Fraction(i11, i12): switch(se2: Expr) {
+					Integer(i2): subScalar(se1, se2);
+					Fraction(i21, i22): subScalar(se1, se2);
+					default: Sub(se1, se2);
+				}
+				default: Sub(se1, se2);
+			}
+		}
+		Mul(e1, e2): {
+			se1 = simplifySimple(e1);
+			se2 = simplifySimple(e2);
+			if(se1 == Integer(0)) {
+				Integer(0);
+			} else
+			if(se2 == Integer(0)) {
+				Integer(0);
+			} else
+			if(se1 == Integer(1)) {
+				se2;
+			} else
+			if(se2 == Integer(1)) {
+				se1;
+			} else
+
+			switch(se1: Expr) {
+				Integer(i1): switch(se2: Expr) {
+					Integer(i2): mulScalar(se1, se2);
+					Fraction(i21, i22): mulScalar(se1, se2);
+					default: Mul(se1, se2);
+				}
+				Fraction(i11, i12): switch(se2: Expr) {
+					Integer(i2): mulScalar(se1, se2);
+					Fraction(i21, i22): mulScalar(se1, se2);
+					default: Mul(se1, se2);
+				}
+				default: Mul(se1, se2);
+			}
+		}
+		Div(e1, e2): {
+			se1 = simplifySimple(e1);
+			se2 = simplifySimple(e2);
+			if(se1 == Integer(0)) {
+				Integer(0);
+			} else
+			if(se2 == Integer(0)) {
+				Integer(1/0);
+			} else
+			if(se2 == Integer(1)) {
+				se1;
+			} else
+
+			switch(se1: Expr) {
+				Integer(i1): switch(se2: Expr) {
+					Integer(i2): divScalar(se1, se2);
+					Fraction(i21, i22): divScalar(se1, se2);
+					default: Div(se1, se2);
+				}
+				Fraction(i11, i12): switch(se2: Expr) {
+					Integer(i2): divScalar(se1, se2);
+					Fraction(i21, i22): divScalar(se1, se2);
+					default: Div(se1, se2);
+				}
+				default: Div(se1, se2);
+			}
+		}
+		Pow(e1, e2): {
+			se1 = simplifySimple(e1);
+			se2 = simplifySimple(e2);
+			if(se2 == Integer(0)) {
+				Integer(1);
+			} else
+			if(se2 == Integer(1)) {
+				se1;
+			} else
+			if(se1 == Integer(1)) {
+				Integer(1);
+			} else
+
+			switch(se1: Expr) {
+				Integer(i1): switch(se2: Expr) {
+					Integer(i2): powScalar(se1, se2);
+					Fraction(i21, i22): powScalar(se1, se2);
+					default: Pow(se1, se2);
+				}
+				Fraction(i11, i12): switch(se2: Expr) {
+					Integer(i2): powScalar(se1, se2);
+					Fraction(i21, i22): powScalar(se1, se2);
+					default: Pow(se1, se2);
+				}
+				default: Pow(se1, se2);
+			}
+
+		}
+		Fraction(q1, q2): e;
+		Integer(i): e;
+		Variable(s): e;
+	}
+}
+
+differentiateSimple(e: Expr) -> Expr;
+differentiateSimple(e) {
+	switch(e: Expr) {
+		Sum(e1, e2): Sum(differentiateSimple(e1), differentiateSimple(e2));
+		Sub(e1, e2): Sub(differentiateSimple(e1), differentiateSimple(e2));
+		Mul(e1, e2): Sum(Mul(differentiateSimple(e1), e2), Mul(e1, differentiateSimple(e2)));
+		Div(e1, e2): Div(Sub(Mul(differentiateSimple(e1), e2), Mul(e1, differentiateSimple(e2))), Pow(e2, Integer(2)));
+		Pow(e1, e2): switch(e2: Expr) {
+			Integer(i): Mul(e2, Mul(Pow(e1, subScalar(e2, Integer(1))), differentiateSimple(e1)));
+			Fraction(i1, i2): Mul(e2, Mul(Pow(e1, subScalar(e2, Integer(1))), differentiateSimple(e1)));
+			default: {
+				println("Warning: log is not supported, it will be substituted with constant value");
+				Sum(Mul(differentiateSimple(e2), e), Mul(e2, Mul(Pow(e1, Sub(e2, Integer(1))), differentiateSimple(e1))));
+			}
+		}
+		Integer(i): Integer(0);
+		Fraction(i1, i2): Integer(0);
+		Variable(s): Integer(1);
 	}
 }
 
 main() {
 	sourceExpression = getUrlParameter("0expr");
 	expr = string2Expr(sourceExpression);
-	println(expr);
-	str = Expr2string(expr);
-	println(str);
-	value = calculateExpr(expr);
-	println(value);
+	println(Expr2string(expr));
+	println(calculateExpr(expr));
+	println(Expr2string(simplifySimple(expr)));
+	println(Expr2string(differentiateSimple(expr)));
+	println(Expr2string(simplifySimple(differentiateSimple(expr))));
 }

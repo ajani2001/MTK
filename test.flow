@@ -1,31 +1,99 @@
-import sys/system;
 import runtime;
-import net/url_parameter;
+import math/math;
 
-t(s: string) -> int;
-t(s) {
-	if(s=="1") {
-		1;
+Scalar ::= Fraction, Integer;
+Expr ::= Sum, Sub, Mul, Div, Pow, Fraction, Integer, Variable;
+Sum(e1: Expr, e2: Expr);
+Sub(e1: Expr, e2: Expr);
+Mul(e1: Expr, e2: Expr);
+Div(e1: Expr, e2: Expr);
+Pow(e1: Expr, e2: Expr);
+Fraction(i1: int, i2: int);
+Integer(i: int);
+Variable(name: string);
+
+simplifyFraction(f: Fraction) -> Scalar;
+simplifyFraction(f) {
+	sg = isign(f.i1*f.i2);
+	i1 = iabs(f.i1);
+	i2 = iabs(f.i2);
+	if(i1%i2 == 0) {
+		Integer(sg*i1/i2);
 	} else {
-		0;
+		divider = gcd(i1, i2);
+		Fraction(sg*i1/divider, i2/divider);
+	}
+}
+
+sumScalar(s1: Scalar, s2: Scalar) -> Scalar;
+sumScalar(s1, s2) {
+	switch(s1: Scalar) {
+		Fraction(i11, i12): {
+			switch(s2: Scalar) {
+				Fraction(i21, i22): simplifyFraction(Fraction(i11*i22+i21*i12, i12*i22));
+				Integer(i2): simplifyFraction(Fraction(i11+i2*i12, i12));
+			}
+		}
+		Integer(i1): {
+			switch(s2: Scalar) {
+				Fraction(i21, i22): simplifyFraction(Fraction(i21+i1*i22, i22));
+				Integer(i2): Integer(i1+i2);
+			}
+		}
+	}
+}
+
+mulScalar(s1: Scalar, s2: Scalar) -> Scalar;
+mulScalar(s1, s2) {
+	switch(s1: Scalar) {
+		Fraction(i11, i12): {
+			switch(s2: Scalar) {
+				Fraction(i21, i22): simplifyFraction(Fraction(i11*i21, i12*i22));
+				Integer(i2): simplifyFraction(Fraction(i11*i2, i12));
+			}
+		}
+		Integer(i1): {
+			switch(s2: Scalar) {
+				Fraction(i21, i22): simplifyFraction(Fraction(i1*i21, i22));
+				Integer(i2): Integer(i1*i2);
+			}
+		}
+	}
+}
+
+subScalar(s1: Scalar, s2: Scalar) -> Scalar;
+subScalar(s1, s2) {
+	sumScalar(s1, mulScalar(s2, Integer(-1)));
+}
+
+divScalar(s1: Scalar, s2: Scalar) -> Scalar;
+divScalar(s1, s2) {
+	switch(s2: Scalar) {
+		Fraction(i21, i22): mulScalar(s1, Fraction(i22, i21));
+		Integer(i2): mulScalar(s1, Fraction(1, i2));
+	}
+}
+
+powScalar(s1: Scalar, s2: Scalar) -> Scalar;
+powScalar(s1, s2) {
+	switch(s1: Scalar) {
+		Fraction(i11, i12): {
+			switch(s2: Scalar) {
+				Fraction(i21, i22): simplifyFraction(Fraction(round(100.0*dpow(i2d(i11)/i2d(i12), i2d(i21)/i2d(i22))), 100));
+				Integer(i2): simplifyFraction(Fraction(pow(i11, i2), pow(i12, i2)));
+			}
+		}
+		Integer(i1): {
+			switch(s2: Scalar) {
+				Fraction(i21, i22): simplifyFraction(Fraction(round(100.0*dpow(i2d(i1), i2d(i21)/i2d(i22))), 100));
+				Integer(i2): Integer(pow(i1, i2));
+			}
+		}
 	}
 }
 
 main() {
-	println(t(getUrlParameter("a")));
-	//println(readUntil("\n"));
-	//println("Exit");
-}
-
-buildOp(op: string, e1: Expr, e2: Expr) -> Expr;
-buildOp(op, e1, e2) {
-	if(op=="+") {
-		Sum(e1, e2);
-	} else if(op=="-") {
-		Sub(e1, e2);
-	} else if(op=="*") {
-		Mul(e1, e2);
-	} else {
-		Div(e1, e2);
- 	}
+	s1 = Fraction(36, 100);
+	s2 = Fraction(1, 2);
+	println(powScalar(s1, s2));
 }
