@@ -61,13 +61,14 @@ build_iter(arr) {
 	concat([new_cond], replace_labels(arr_shifted, max_arr_shifted, 0));
 }
 
-NEMO2VM(s: string) -> Prog;
-NEMO2VM(s) {
-	parsic(compilePegGrammar("#include lab5-7.lingo"), s, defaultPegActions);
+parse_nemo(s: string) -> Prog;
+parse_nemo(s) {
+	extendedPegActions = SemanticActions(setTree(setTree(setTree(defaultPegActions.t, "build_sequence", build_sequence), "build_iter", build_iter), "build_fork", build_fork));
+	parsic(compilePegGrammar("#include lab12.lingo"), s, extendedPegActions);
 }
 
 main() {
-	sourceExpression = "((1+2)*(3+4))";
-	
-	println(value);
+	sourceExpression = "VAR b : int; VAR a : [int]; (b := 1 ; PRINT b)";
+	parsed = parse_nemo(sourceExpression);	
+	println(parsed);
 }
