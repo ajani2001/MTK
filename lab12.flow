@@ -1,0 +1,73 @@
+import lingo/pegcode/driver;
+
+Prog(v: [Var], s: [Statement]);
+Var(name: string, t: Type);
+Type ::= Int, Arr;
+Int();
+Arr(t: Type);
+Statement ::= Assn, Cond, Prnt;
+Assn(label: int, varname: string, expr: string, labels: [int]);
+Cond(label: int, relationship: string, labels_true: [int], labels_false: [int]);
+Prnt(label: int, expr: string, labels: [int]);
+
+max_label(arr: [Statement]) -> int;
+max_label(arr) {
+	fold(arr, 0, \ m: int, s: Statement -> max(m, \s: Statement -> {
+		switch(s: Statement) {
+			Assn(label, varname, expr, labels): max(label, either(maxA(labels), 0));
+			Cond(label, relationship, labels_true, labels_false): max(label, either(maxA(concat(labels_true, labels_false)), 0));
+			Prnt(label, expr, labels): max(label, either(maxA(labels), 0));
+		}
+	}));
+}
+
+shift_labels(arr: [Statement], shift: int) -> [Statement];
+shift_labels(arr, shift) {
+	map(arr, \ s: Statement -> {
+		switch(s: Statement) {
+			Assn(label, varname, expr, labels): Assn(label+shift, varname, expr, map(labels, \ l: int -> l+shift));
+			Cond(label, relationship, labels_true, labels_false): Cond(label+shift, relationship, map(labels_true, \ l: int -> l+shift), map(labels_false, \ l: int -> l+shift));
+			Prnt(label, expr, labels): Prnt(label+shift, expr, map(labels, \ l: int -> l+shift));
+		}
+	});
+}
+replace_labels(arr: [Statement], old: int, new: int) -> [Statement];
+replace_labels(arr, old, new) {
+	map(arr, \ s: Statement -> {
+		switch(s: Statement) {
+			Assn(label, varname, expr, labels): if(label == old) Assn(new, varname, expr, map(labels, \ l: int -> if(l==old) new else l) else Assn(label, varname, expr, map(labels, \ l: int -> if(l==old) new else l);
+			Cond(label, relationship, labels_true, labels_false): if(label == old) Cond(new, relationship, map(labels_true, \ l: int -> if(l==old) new else l), map(labels_false, \ l: int -> if(l==old) new else l)) else Cond(label, relationship, map(labels_true, \ l: int -> if(l==old) new else l), map(labels_false, \ l: int -> if(l==old) new else l));
+			Prnt(label, expr, labels): if(label == old) Prnt(new, expr, map(labels, \ l: int -> if(l==old) new else l)) else Prnt(label, expr, map(labels, \ l: int -> if(l==old) new else l));
+		}
+	});
+}
+
+build_sequence(arr1: [Statement], arr2: [Statement]) -> [Statement];
+build_sequence(arr1, arr2) {
+	concat(arr1, shift_labels(arr2, max_label(arr1)));
+}
+build_fork(arr1: [Statement], arr2: [Statement]) -> [Statement];
+build_fork(arr1, arr2) {
+	arr1_shifted = shift_labels(arr1, 1);
+	max_arr1_shifted = max_label(arr1_shifted);
+	new_cond = Cond(0, "0=0", [1, max_arr1_shifted], []);
+	concat(concat([new_cond], arr1_shifted), shift_labels(arr2, max_arr1_shifted));
+}
+build_iter(arr: [Statement]) -> [Statement];
+build_iter(arr) {
+	arr_shifted = shift_labels(arr, 1);
+	max_arr_shifted = max_label(arr_shifted);
+	new_cond = Cond(0, "0=0", [1, max_arr_shifted], []);
+	concat([new_cond], replace_labels(arr_shifted, max_arr_shifted, 0));
+}
+
+NEMO2VM(s: string) -> Prog;
+NEMO2VM(s) {
+	parsic(compilePegGrammar("#include lab5-7.lingo"), s, defaultPegActions);
+}
+
+main() {
+	sourceExpression = "((1+2)*(3+4))";
+	
+	println(value);
+}
