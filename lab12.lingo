@@ -1,17 +1,17 @@
 prog = decl:d body:b { Prog(:d, :b) };
 
 decl = vardecl*:v { :v };
-vardecl = "VAR " varname$n " : " type:t "; " { Type($n, :t) };
-type = "int" { Int() } | "["type:t"]" { Arr(:t) };
+vardecl = "VAR " varname$n " : " type:t "; " { Var($n, :t) };
+type = "int" { Int() } | "[" type:t "]" { Arr(:t) };
 
-body = assignment:arr { :arr } | test:arr { :arr } | print:arr { :arr } | "("body:arr1" ; " body:arr2")" { build_sequence(:arr1, :arr2) } | "("body:arr1" U " body:arr2")" { build_fork(:arr1, :arr2) } | "("body:arr")*" { build_iter(:arr) };
-assignment = varname$n " := " expr$e { [Assn(0, $n, $e, [1])] };
-test = relationship$r " ?" { [Cond(0, $r, [1], [])] };
-print = "PRINT " expr$e { [Prnt(0, $e, [1])] };
-expr = operand | arith_expr | func_expr;
+body = assignment:arr { :arr } | test:arr { :arr } | print:arr { :arr } | "(" body:arr1 " ; " body:arr2 ")" { build_sequence(:arr1, :arr2) } | "(" body:arr1 " U " body:arr2 ")" { build_fork(:arr1, :arr2) } | "(" body:arr ")*" { build_iter(:arr) };
+assignment = varname$n " := " expr$e { make_assn($n, $e) };
+test = relationship$r " ?" { make_cond($r) };
+print = "PRINT " expr$e { make_prnt($e) };
+expr = arith_expr | func_expr | operand;
 operand = literal | varname;
-arith_expr = "("operand opsym operand")";
-func_expr = "APP("operand", "operand")" | "UPD("operand", "operand", "operand")";
+arith_expr = "(" operand opsym operand ")";
+func_expr = "APP(" operand ", " operand ")" | "UPD(" operand ", " operand ", " operand ")";
 relationship = operand relsym operand;
 
 varname = letter+;
