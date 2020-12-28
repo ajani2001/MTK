@@ -1,22 +1,31 @@
 prog = decl:d body:b { Prog(:d, :b) };
 
 decl = vardecl*:v { :v };
-vardecl = "VAR " varname$n " : " type:t "; " { Var($n, :t) };
-type = "int" { Int() } | "[" type:t "]" { Arr(:t) };
+vardecl = "VAR " varname$n " : " type:t "; " { Vardecl($n, :t) };
+type = "int" { Inttype() } | "[" type:t "]" { Arrtype(:t) };
 
 body = assignment:arr { :arr } | test:arr { :arr } | print:arr { :arr } | "(" body:arr1 " ; " body:arr2 ")" { build_sequence(:arr1, :arr2) } | "(" body:arr1 " U " body:arr2 ")" { build_fork(:arr1, :arr2) } | "(" body:arr ")*" { build_iter(:arr) };
-assignment = varname$n " := " expr$e { make_assn($n, $e) };
-test = relationship$r " ?" { make_cond($r) };
-print = "PRINT " expr$e { make_prnt($e) };
-expr = arith_expr | func_expr | operand;
-operand = literal | varname;
-arith_expr = "(" operand opsym operand ")";
-func_expr = "APP(" operand ", " operand ")" | "UPD(" operand ", " operand ", " operand ")";
-relationship = operand relsym operand;
 
+assignment = varname$n " := " expr:e { make_assn(Var($n), :e) };
+test = relationship:r " ?" { make_cond(:r) };
+print = "PRINT " operand:op { make_prnt(:op) };
+
+expr = arith_expr:e { :e } | func_expr:e { :e } | operand:e { :e };
+arith_expr = "(" operand:op1 "+" operand:op2 ")" { ExprSum(:op1, :op2) } |
+		"(" operand:op1 "-" operand:op2 ")" { ExprSub(:op1, :op2) } |
+		"(" operand:op1 "*" operand:op2 ")" { ExprMul(:op1, :op2) } |
+		"(" operand:op1 "/" operand:op2 ")" { ExprDiv(:op1, :op2) };
+func_expr = "APP(" operand:arr ", " operand:ind ")" { ExprApp(:arr, :ind) } |
+		"UPD(" operand:arr ", " operand:ind ", " operand:val ")" { ExprUpd(:arr, :ind, :val) };
+relationship = operand:op1 "=" operand:op2 { RelEq(:op1, :op2) } |
+		operand:op1 "!=" operand:op2 { RelNeq(:op1, :op2) } |
+		operand:op1 ">=" operand:op2 { RelGte(:op1, :op2) } |
+		operand:op1 "<=" operand:op2 { RelGte(:op2, :op1) } |
+		operand:op1 ">" operand:op2 { RelGt(:op1, :op2) } |
+		operand:op1 "<" operand:op2 { RelGt(:op2, :op1) };
+
+operand = literal$l { Int(s2i($l)) } | varname$n { Var($n) };
 varname = letter+;
 literal = "-"? number+;
-opsym = "+" | "-" | "*" | "/";
-relsym = "=" | "!=" | ">=" | "<=" | ">" | "<";
 letter = 'a'-'z' | 'A'-'Z';
 number = '0'-'9';

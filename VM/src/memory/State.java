@@ -1,6 +1,6 @@
 package memory;
 
-public class State {
+public class State implements Cloneable {
     int instructionIndex;
     int constPoolSize;
     int varPoolSize;

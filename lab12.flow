@@ -1,20 +1,37 @@
 import lingo/pegcode/driver;
+import sys/system;
 
-Prog(v: [Var], s: [Statement]);
-Var(name: string, t: Type);
-Type ::= Int, Arr;
-Int();
-Arr(t: Type);
+Prog(v: [Vardecl], s: [Statement]);
+Vardecl(name: string, t: Vartype);
+Vartype ::= Inttype, Arrtype;
+Inttype();
+Arrtype(t: Vartype);
 Statement ::= Assn, Cond, Prnt;
-Assn(label: int, varname: string, expr: string, labels: [int]);
-Cond(label: int, relationship: string, labels_true: [int], labels_false: [int]);
-Prnt(label: int, expr: string, labels: [int]);
+Assn(label: int, var: Var, expr: AssnExpr, labels: [int]);
+Cond(label: int, rel: Relationship, labels_true: [int], labels_false: [int]);
+Prnt(label: int, op: Operand, labels: [int]);
+Operand ::= Int, Var;
+Int(value: int);
+Var(name: string);
+Relationship ::= RelEq, RelNeq, RelGt, RelGte;
+RelEq(op1: Operand, op2: Operand);
+RelNeq(op1: Operand, op2: Operand);
+RelGt(op1: Operand, op2: Operand);
+RelGte(op1: Operand, op2: Operand);
+AssnExpr ::= Operand, ExprSum, ExprSub, ExprMul, ExprDiv, ExprApp, ExprUpd;
+ExprSum(op1: Operand, op2: Operand);
+ExprSub(op1: Operand, op2: Operand);
+ExprMul(op1: Operand, op2: Operand);
+ExprDiv(op1: Operand, op2: Operand);
+ExprApp(arr: Operand, ind: Operand);
+ExprUpd(arr: Operand, ind: Operand, val: Operand);
+
 
 make_assn(arg: [flow]) -> flow;
 make_assn(arg) {
-	varname = arg[0];
+	var = arg[0];
 	expr = arg[1];
-	[Assn(0, varname, expr, [1])];
+	[Assn(0, var, expr, [1])];
 }
 
 make_cond(arg: [flow]) -> flow;
@@ -25,8 +42,8 @@ make_cond(arg) {
 
 make_prnt(arg: [flow]) -> flow;
 make_prnt(arg) {
-	expr = arg[0];
-	[Prnt(0, expr, [1])];
+	val = arg[0];
+	[Prnt(0, val, [1])];
 }
 
 max_label(arr: [Statement]) -> int;
@@ -76,7 +93,7 @@ build_fork(arg) {
 	max_arr1_shifted = max_label(arr1_shifted);
 	arr2_shifted = shift_labels(arr2, max_arr1_shifted);
 	max_arr2_shifted = max_label(arr2_shifted);
-	new_cond = Cond(0, "0=0", [1, max_arr1_shifted], []);
+	new_cond = Cond(0, RelEq(Int(0), Int(0)), [1, max_arr1_shifted], []);
 	concat(concat([new_cond], replace_labels(arr1_shifted, max_arr1_shifted, max_arr2_shifted)), arr2_shifted);
 }
 build_iter(arg: [flow]) -> flow;
@@ -84,7 +101,7 @@ build_iter(arg) {
 	arr = arg[0];
 	arr_shifted = shift_labels(arr, 1);
 	max_arr_shifted = max_label(arr_shifted);
-	new_cond = Cond(0, "0=0", [1, max_arr_shifted], []);
+	new_cond = Cond(0, RelEq(Int(0), Int(0)), [1, max_arr_shifted], []);
 	concat([new_cond], replace_labels(arr_shifted, max_arr_shifted, 0));
 }
 
@@ -94,8 +111,121 @@ parse_nemo(s) {
 	parsic(compilePegGrammar("#include lab12.lingo"), s, extendedPegActions);
 }
 
+int_to_bytearray(i: int) -> string;
+int_to_bytearray(i) {
+	if(i<0) {
+		i2=i+2147483647+1;
+		concatStrings([fromCharCode(128+i2/16777216), fromCharCode(i2/65536%256), fromCharCode(i2/256%256), fromCharCode(i2%256)]);
+	} else {
+		concatStrings([fromCharCode(i/16777216), fromCharCode(i/65536%256), fromCharCode(i/256%256), fromCharCode(i%256)]);
+	}
+}
+
+unsigned_byte(i: int) -> string;
+unsigned_byte(i) {
+	fromCharCode(i%256);
+}
+
+array_to_bytearray(arr: [int]) -> string;
+array_to_bytearray(arr) {
+	concatStrings(concat([int_to_bytearray(length(arr))], map(arr, int_to_bytearray)));
+}
+
+process_operand(op: Operand, pair: Pair) -> Pair;
+process_operand(op, pair) {
+	switch(op: Operand) {
+		Int(val): {
+			switch(lookupTree(pair.first, val)) {
+				Some(value): pair;
+				None(): Pair(setTree(pair.first, val, pair.second), pair.second+1);
+			}
+		}
+		Var(name): pair;
+	}
+}
+
+get_operand_index(op: Operand, const_tree: Tree<int, int>, var_tree: Tree<string, int>) -> int;
+get_operand_index(op, const_tree, var_tree) {
+	switch(op: Operand) {
+		Int(value): lookupTreeDef(const_tree, value, -1);
+		Var(name): lookupTreeDef(var_tree, name, -1);
+	}
+}
+
+get_rank(t: Vartype) -> int;
+get_rank(t) {
+	switch(t: Vartype) {
+		Inttype(): 0;
+		Arrtype(inner): get_rank(inner)+1;
+	}
+}
+
+prog_to_bytearray(p: Prog) -> string;
+prog_to_bytearray(p) {
+	consts = fold(p.s, Pair(makeTree(), 0), \ pair, statement -> {
+		switch(statement: Statement) {
+			Assn(label, var, expr, labels): {
+				switch(expr: AssnExpr) {
+					Operand(): process_operand(expr, pair);
+					ExprSum(op1, op2): process_operand(op2, process_operand(op1, pair));
+					ExprSub(op1, op2): process_operand(op2, process_operand(op1, pair));
+					ExprMul(op1, op2): process_operand(op2, process_operand(op1, pair));
+					ExprDiv(op1, op2): process_operand(op2, process_operand(op1, pair));
+					ExprApp(arr, ind): process_operand(ind, process_operand(arr, pair));
+					ExprUpd(arr, ind, val): process_operand(val, process_operand(ind, process_operand(arr, pair)));
+				}
+			}
+			Cond(label, rel, labels_true, labels_false): {
+				switch(rel: Relationship) {
+					RelEq(op1, op2): process_operand(op2, process_operand(op1, pair));
+					RelNeq(op1, op2): process_operand(op2, process_operand(op1, pair));
+					RelGt(op1, op2): process_operand(op2, process_operand(op1, pair));
+					RelGte(op1, op2): process_operand(op2, process_operand(op1, pair));
+				}
+			}
+			Prnt(label, op, labels): process_operand(op, pair);
+		}
+	});
+	const_pool_size = consts.second;
+	const_tree = consts.first;
+	var_tree = foldi(p.v, makeTree(), \ index, tree, decl -> {
+		setTree(tree, decl.name, const_pool_size+index);
+	});
+	statements_encoded = map(p.s, \ statement -> {
+		switch(statement: Statement) {
+			Assn(label, var, expr, labels): {
+				switch(expr: AssnExpr) {
+					Operand(): concatStrings([unsigned_byte(0), int_to_bytearray(get_operand_index(var, const_tree, var_tree)), int_to_bytearray(get_operand_index(expr, const_tree, var_tree)), array_to_bytearray(labels)]);
+					ExprSum(op1, op2): concatStrings([unsigned_byte(1), int_to_bytearray(get_operand_index(var, const_tree, var_tree)), int_to_bytearray(get_operand_index(op1, const_tree, var_tree)), int_to_bytearray(get_operand_index(op2, const_tree, var_tree)), array_to_bytearray(labels)]);
+					ExprSub(op1, op2): concatStrings([unsigned_byte(2), int_to_bytearray(get_operand_index(var, const_tree, var_tree)), int_to_bytearray(get_operand_index(op1, const_tree, var_tree)), int_to_bytearray(get_operand_index(op2, const_tree, var_tree)), array_to_bytearray(labels)]);
+					ExprMul(op1, op2): concatStrings([unsigned_byte(3), int_to_bytearray(get_operand_index(var, const_tree, var_tree)), int_to_bytearray(get_operand_index(op1, const_tree, var_tree)), int_to_bytearray(get_operand_index(op2, const_tree, var_tree)), array_to_bytearray(labels)]);
+					ExprDiv(op1, op2): concatStrings([unsigned_byte(4), int_to_bytearray(get_operand_index(var, const_tree, var_tree)), int_to_bytearray(get_operand_index(op1, const_tree, var_tree)), int_to_bytearray(get_operand_index(op2, const_tree, var_tree)), array_to_bytearray(labels)]);
+					ExprApp(arr, ind): concatStrings([unsigned_byte(5), int_to_bytearray(get_operand_index(var, const_tree, var_tree)), int_to_bytearray(get_operand_index(arr, const_tree, var_tree)), int_to_bytearray(get_operand_index(ind, const_tree, var_tree)), array_to_bytearray(labels)]);
+					ExprUpd(arr, ind, val): concatStrings([unsigned_byte(6), int_to_bytearray(get_operand_index(var, const_tree, var_tree)), int_to_bytearray(get_operand_index(arr, const_tree, var_tree)), int_to_bytearray(get_operand_index(ind, const_tree, var_tree)), int_to_bytearray(get_operand_index(val, const_tree, var_tree)), array_to_bytearray(labels)]);
+				}
+			}
+			Cond(label, rel, labels_true, labels_false): {
+				switch(rel: Relationship) {
+					RelEq(op1, op2): concatStrings([unsigned_byte(7), int_to_bytearray(get_operand_index(op1, const_tree, var_tree)), int_to_bytearray(get_operand_index(op2, const_tree, var_tree)), array_to_bytearray(labels_true), array_to_bytearray(labels_false)]);
+					RelNeq(op1, op2): concatStrings([unsigned_byte(8), int_to_bytearray(get_operand_index(op1, const_tree, var_tree)), int_to_bytearray(get_operand_index(op2, const_tree, var_tree)), array_to_bytearray(labels_true), array_to_bytearray(labels_false)]);
+					RelGt(op1, op2): concatStrings([unsigned_byte(9), int_to_bytearray(get_operand_index(op1, const_tree, var_tree)), int_to_bytearray(get_operand_index(op2, const_tree, var_tree)), array_to_bytearray(labels_true), array_to_bytearray(labels_false)]);
+					RelGte(op1, op2): concatStrings([unsigned_byte(10), int_to_bytearray(get_operand_index(op1, const_tree, var_tree)), int_to_bytearray(get_operand_index(op2, const_tree, var_tree)), array_to_bytearray(labels_true), array_to_bytearray(labels_false)]);
+				}
+			}
+			Prnt(label, op, labels): concatStrings([unsigned_byte(11), int_to_bytearray(get_operand_index(op, const_tree, var_tree)), array_to_bytearray(labels)]);
+		}
+	});
+
+	const_pool = foldTree(const_tree, arrayRepeat(-1, const_pool_size), \ value, index, arr -> replace(arr, index, value));
+	var_pool = map(p.v, \ decl -> get_rank(decl.t));
+	concatStrings(concat([array_to_bytearray(const_pool), array_to_bytearray(var_pool)], statements_encoded));
+}
+
 main() {
-	sourceExpression = "VAR b : int; VAR a : [int]; PRINT a";
-	parsed = parse_nemo(sourceExpression);	
+	sourceExpression = "VAR arr : [int]; VAR arrlen : int; VAR curmin : int; VAR idx : int; VAR currel : int; (((((((((arr := UPD(arr, 0, 10) ; arr := UPD(arr, 1, 7)) ; arr := UPD(arr, 2, 5)) ; arr := UPD(arr, 3, 111)) ; arrlen := 4) ; curmin := APP(arr, 0)) ; idx := 0) ; ((((idx<arrlen ? ; currel := APP(arr, idx)) ; ((currel<curmin ? ; curmin := currel) U currel>=curmin ?)) ; idx := (idx+1)))*) ; idx=arrlen ?) ; PRINT curmin)";
+	parsed = parse_nemo(sourceExpression);
 	println(parsed);
+	bytearray = prog_to_bytearray(parsed);
+	setFileContentBytes("prog.bytecode", bytearray);
+	println("Done");
 }

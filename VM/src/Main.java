@@ -6,6 +6,7 @@ public class Main {
     public static void main(String[] args) throws IOException {
         if(args.length != 1) {
             System.out.println("Usage: VM prog.bytecode");
+            System.exit(1);
         }
 
         FileInputStream fis = new FileInputStream(args[0]);

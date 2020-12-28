@@ -10,6 +10,11 @@ public class VM {
     ArrayList<Instruction> instructions;
     ArrayList<State> states;
 
+    public VM() {
+        instructions = new ArrayList<>();
+        states = new ArrayList<>();
+    }
+
     int[] readInts(DataInputStream inputStream, int length) throws IOException {
         int[] result = new int[length];
         for(int i = 0; i < length; ++i)
